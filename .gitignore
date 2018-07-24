@@ -1,0 +1,10 @@
+.idea
+.DS_Store
+*.pyc
+__pycache__
+*.sqlite3
+media-files
+static-files
+build.idea
+frontend/node_modules
+frontend/dist

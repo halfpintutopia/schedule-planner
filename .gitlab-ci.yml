@@ -1,0 +1,93 @@
+stages:
+  - pull
+  - build
+  - lint
+  - test
+  - push
+  - deploy
+  - cleanup
+
+before_script:
+  - docker login -u "gitlab-ci-token" -p "$CI_BUILD_TOKEN" "$CI_REGISTRY"
+
+#before_script:
+#  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+#  - docker pull $CONTAINER_RELEASE_IMAGE
+#  - docker run --name gitlab-runner -d -i -v $PWD:/home/workdir $CONTAINER_RELEASE_IMAGE
+
+pull:
+  stage: pull
+  allow_failure: true
+  script:
+    - docker pull "$CI_REGISTRY_IMAGE":latest
+
+pull:
+  stage: pull
+  allow_failure: true
+  script:
+    - docker pull "$CI_REGISTRY_IMAGE":latest
+
+build:
+  stage: build
+  script:
+    - docker build --tag="$CI_PIPELINE_ID":"$CI_BUILD_REF_NAME" --cache-from="$CI_REGISTRY_IMAGE":latest --pull .
+
+lint:
+  stage: lint
+  script:
+   - export CI_PIPELINE_ID=$CI_PIPELINE_ID
+   - export CI_BUILD_REF_NAME=$CI_BUILD_REF_NAME
+   - docker-compose -p "$CI_PIPELINE_ID" -f docker-compose.test.yml run app flake8 .
+
+test:
+  stage: test
+  script:
+    - export CI_PIPELINE_ID=$CI_PIPELINE_ID
+    - export CI_BUILD_REF_NAME=$CI_BUILD_REF_NAME
+    - docker-compose -p "$CI_PIPELINE_ID" -f docker-compose.test.yml run app sh /scripts/test.sh
+  artifacts:
+    paths:
+      - htmlcov
+
+push image:
+  stage: push
+  only:
+    - master
+    - tags
+  script:
+    - docker tag "$CI_PIPELINE_ID":"$CI_BUILD_REF_NAME" "$CI_REGISTRY_IMAGE":"$CI_BUILD_REF_NAME"
+    - docker push "$CI_REGISTRY_IMAGE":"$CI_BUILD_REF_NAME"
+
+push latest:
+  stage: push
+  script:
+    - docker tag "$CI_PIPELINE_ID":"$CI_BUILD_REF_NAME" "$CI_REGISTRY_IMAGE":latest
+    - docker push "$CI_REGISTRY_IMAGE":latest
+
+pages:
+  stage: deploy
+  dependencies:
+    - test
+  script:
+    - mv htmlcov public
+  artifacts:
+    paths:
+      - public
+
+deploy to prod:
+  stage: deploy
+  only:
+    - master
+    - tags
+  when: manual
+  script:
+    - docker-compose -f docker-compose.deploy.yml pull
+    - docker-compose -f docker-compose.deploy.yml down
+    - docker-compose -f docker-compose.deploy.yml up -d
+
+cleanup:
+  stage: cleanup
+  when: always
+  script:
+     - docker rmi -f "$CI_PIPELINE_ID":"$CI_BUILD_REF_NAME"
+     - docker-compose -p "$CI_PIPELINE_ID" -f docker-compose.test.yml down --remove-orphans

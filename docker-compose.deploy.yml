@@ -1,0 +1,42 @@
+version: '2'
+services:
+  database:
+    image: postgres:9.6.1
+    restart: always
+    env_file: prod.env
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  app:
+    image: registry.gitlab.propulsion-home.ch/full-stack/batch-2018-03/personal-projects/schedule-planner:latest
+    restart: always
+    env_file: dev.env
+    depends_on:
+      - database
+    command: "sh /scripts/run.sh"
+    volumes:
+      - run:/run
+      - static-files:/static-files
+      - media-files:/media-files
+      - frontend:/frontend-build
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - run:/run
+      - static-files:/static-files
+      - media-files:/media-files
+      - frontend:/frontend
+      - ./nginx:/etc/nginx/conf.d
+    ports:
+      - "80:80"
+      - "443:443"
+    command: /bin/bash -c "nginx -g 'daemon off;'"
+
+volumes:
+  run:
+  database:
+  media-files:
+  static-files:
+  frontend:
+  run:

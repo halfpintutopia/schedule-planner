@@ -1,0 +1,30 @@
+version: '2'
+services:
+  database:
+    image: postgres:9.6.1
+    restart: always
+    env_file:
+      - dev.env
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  app:
+    image: registry.gitlab.propulsion-home.ch/full-stack/batch-2018-03/personal-projects/schedule-planner:latest
+    restart: always
+    command: "/usr/sbin/sshd -D"
+    env_file:
+      - dev.env
+    ports:
+      - '8080:8000'
+      - '4738:22'
+    volumes:
+        - ./frontend:/frontend
+        - ./media-files:/media-files
+        - ./static-files:/static-files
+        - ./scheduleapp/:/scheduleapp
+        - ./scripts:/scripts
+    depends_on:
+        - database
+
+volumes:
+  database:
